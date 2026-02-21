@@ -1,0 +1,69 @@
+import Image from "next/image";
+
+interface Category {
+    category_id: number;
+    name: string;
+    category_type: string;
+}
+
+interface Video {
+    video_id: string;
+    title: string;
+    thumbnail_url: string;
+    channel_name: string;
+    view_count: number;
+    published_at: string;
+    url: string;
+    categories: Category[];
+}
+
+export default function VideoCard({ video }: { video: Video }) {
+    // Format view count (e.g., 1500000 -> 150만)
+    const formatViews = (views: number) => {
+        if (views >= 10000) {
+            return `${(views / 10000).toFixed(0)}만회`;
+        }
+        return `${views.toLocaleString()}회`;
+    };
+
+    return (
+        <a
+            href={video.url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="group flex flex-col gap-3 rounded-lg overflow-hidden transition-all duration-300 hover:scale-105 hover:bg-[#202020] p-2 -m-2"
+        >
+            <div className="relative aspect-video w-full rounded-lg overflow-hidden bg-gray-800">
+                <Image
+                    src={video.thumbnail_url || "https://via.placeholder.com/320x180"}
+                    alt={video.title}
+                    fill
+                    className="object-cover group-hover:brightness-110 transition-all"
+                    sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+                />
+                <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex items-end p-3">
+                    <span className="bg-red-600 text-white text-xs font-bold px-2 py-1 rounded">▶ 재생</span>
+                </div>
+            </div>
+            <div className="flex flex-col px-1">
+                <h3 className="text-white font-semibold text-base line-clamp-2 leading-tight group-hover:text-red-400 transition-colors">
+                    {video.title}
+                </h3>
+                <p className="text-gray-400 text-sm mt-1">{video.channel_name}</p>
+                <p className="text-gray-400 text-xs">조회수 {formatViews(video.view_count)}</p>
+
+                {/* Category Badges */}
+                <div className="flex flex-wrap gap-1 mt-2">
+                    {video.categories.map((cat) => (
+                        <span
+                            key={cat.category_id}
+                            className="px-2 py-0.5 text-[10px] font-medium rounded-full bg-gray-800 text-gray-300 border border-gray-700"
+                        >
+                            {cat.name}
+                        </span>
+                    ))}
+                </div>
+            </div>
+        </a>
+    );
+}
