@@ -102,12 +102,40 @@ export default function VideoGrid({ categories, selectedCategories, onRemoveCate
     }, [loadVideos, loading, hasMore]);
 
 
+    // Channel Deduplication Logic: Prevent adjacent videos from the same channel
+    const deduplicateVideos = (vids: Video[]): Video[] => {
+        if (vids.length === 0) return [];
+        const result: Video[] = [vids[0]];
+        const remaining = vids.slice(1);
+
+        let i = 0;
+        while (remaining.length > 0 && i < 100) { // Limit iterations to avoid infinite loop
+            let found = false;
+            for (let j = 0; j < remaining.length; j++) {
+                if (remaining[j].channel_name !== result[result.length - 1].channel_name) {
+                    result.push(remaining.splice(j, 1)[0]);
+                    found = true;
+                    break;
+                }
+            }
+            if (!found) {
+                // If no different channel found, just push the first remaining
+                result.push(remaining.splice(0, 1)[0]);
+            }
+            i++;
+        }
+        return [...result, ...remaining];
+    };
+
+    const displayVideos = deduplicateVideos(videos);
+
     return (
-        <div className="flex-1 p-6 md:p-8 overflow-y-auto w-full">
+        <section className="flex-1 min-w-0">
+            {/* Header with Title & Filters */}
             <div className="flex flex-col md:flex-row md:items-end justify-between mb-8 gap-4">
                 <div>
                     <h1 className="text-2xl md:text-3xl font-bold text-white mb-4">
-                        탐색 결과
+                        이런 요리 어때요?
                     </h1>
                     {/* Active Filter Chips */}
                     <div className="flex flex-wrap gap-2">
@@ -123,23 +151,20 @@ export default function VideoGrid({ categories, selectedCategories, onRemoveCate
                                 </button>
                             ))
                         ) : (
-                            <span className="text-gray-500 text-sm">모든 레시피 보기</span>
+                            <span className="text-gray-500 text-sm">다양한 요리를 만나보세요</span>
                         )}
                     </div>
                 </div>
                 <p className="text-gray-400 text-sm whitespace-nowrap">
-                    검색된 영상: <span className="text-white font-semibold">{total.toLocaleString()}</span>개
+                    추천 레시피: <span className="text-white font-semibold">{total.toLocaleString()}</span>개
                 </p>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-x-6 gap-y-10">
-                {videos.map((video, idx) => (
-                    // Using idx just in case of duplicate dummy data keys from random initialization
-                    <VideoCard key={`${video.video_id}-${idx}`} video={video} />
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-x-6 gap-y-10 mb-12">
+                {displayVideos.map((video, index) => (
+                    <VideoCard key={`${video.video_id}-${index}`} video={video} />
                 ))}
-            </div>
-
-            {loading && (
+            </div>{loading && (
                 <div className="w-full flex justify-center py-8">
                     <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-red-500"></div>
                 </div>
@@ -147,6 +172,6 @@ export default function VideoGrid({ categories, selectedCategories, onRemoveCate
 
             {/* Target element for Intersection Observer */}
             <div ref={observerTarget} className="h-10 w-full" />
-        </div>
+        </section>
     );
 }

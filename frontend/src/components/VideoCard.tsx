@@ -71,8 +71,11 @@ export default function VideoCard({ video }: { video: Video }) {
                 <h3 className="text-white font-semibold text-base line-clamp-2 leading-tight group-hover:text-red-400 transition-colors">
                     {video.title}
                 </h3>
-                <p className="text-gray-400 text-sm mt-1">{video.channel_name}</p>
-                <p className="text-gray-400 text-xs">조회수 {formatViews(video.view_count)}</p>
+                <div className="flex items-center gap-2 text-gray-400 text-xs mt-1">
+                    <span>{video.channel_name}</span>
+                    <span className="w-1 h-1 rounded-full bg-gray-600" />
+                    <span>{formatViews(video.view_count)}</span>
+                </div>
 
                 {/* Category Badges */}
                 <div className="flex flex-wrap gap-1 mt-2">

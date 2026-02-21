@@ -31,7 +31,7 @@ export default function Sidebar({ categories, selectedCategories, onChange }: Si
         <aside className="w-72 flex-shrink-0 bg-[#141414] border-r border-gray-800 h-[calc(100vh-64px)] overflow-y-auto hidden md:block custom-scrollbar">
             <div className="p-6">
                 <div className="flex items-center justify-between mb-6">
-                    <h2 className="text-lg font-bold text-white tracking-tight">상세 필터</h2>
+                    <h2 className="text-lg font-bold text-white tracking-tight">취향 검색</h2>
                     {selectedCategories.length > 0 && (
                         <span className="text-xs text-red-500 font-medium">{selectedCategories.length}개 선택됨</span>
                     )}

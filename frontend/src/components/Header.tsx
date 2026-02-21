@@ -28,7 +28,7 @@ export default function Header({ categories, onMenuClick }: HeaderProps) {
                         <Menu size={24} />
                     </button>
                     <Link href="/" className="text-xl md:text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-red-500 to-orange-500 tracking-tight">
-                        K-Food <span className="hidden sm:inline">Dict</span>
+                        K-Food <span className="hidden sm:inline">백과사전</span>
                     </Link>
                 </div>
 
