@@ -16,15 +16,17 @@ load_dotenv()
 YOUTUBE_API_KEY = os.getenv("YOUTUBE_API_KEY")
 
 # ─── Target Channels ───────────────────────────────────────────────────────────
-# Popular Korean food/cooking YouTube channels and their IDs
-TARGET_CHANNELS = [
-    {"name": "백종원의 요리비책", "id": "UCyn-K7rZLXjGl7VXGweIlcA"},  # Paik Jong Won
-    {"name": "만개의레시피",       "id": "UCKA_6r3CWC76x_EaFO6jsPA"},  # 10000 Recipes
-    {"name": "쿠킹하루",           "id": "UCC8bTxyN2ZCfMzS_JAEClfA"},  # Cooking Haru
-    {"name": "Honeykki 꿀키",      "id": "UCvQPUPoMK0Smj-OHeUe9SEw"},  # Honeykki
-    {"name": "Maangchi",           "id": "UC8gFadPgK2r1nwRzL7S034w"},  # Maangchi
-    {"name": "Seonkyoung Longest", "id": "UCvN79pS2Xf6U_93w3b7sL5A"},  # Seonkyoung Longest
-]
+# Load channels from dynamically discovered JSON file
+TARGET_CHANNELS = []
+try:
+    import json
+    with open("channels.json", "r", encoding="utf-8") as f:
+        all_channels = json.load(f)
+        # Take the first 120 channels (to ensure we get at least 100 good ones)
+        TARGET_CHANNELS = all_channels[:120]
+except Exception as e:
+    print(f"Error loading channels.json: {e}")
+    sys.exit(1)
 
 # ─── Keyword → Category Name Mapping ──────────────────────────────────────────
 # Keywords in video titles map to category names in the DB
@@ -173,7 +175,7 @@ def sync_videos():
             print(f"📺 Fetching from: {channel['name']}  (ID: {channel['id']})")
             
             try:
-                video_ids = fetch_channel_videos(youtube, channel["id"], max_results=50)
+                video_ids = fetch_channel_videos(youtube, channel["id"], max_results=200)
                 if not video_ids:
                     print(f"  ⚠️  No videos found.\n")
                     continue

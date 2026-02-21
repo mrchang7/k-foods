@@ -1,7 +1,8 @@
 from fastapi import APIRouter, Depends, Query, HTTPException
 from sqlalchemy.orm import Session
-from sqlalchemy import desc, func
+from sqlalchemy import desc, func, case, or_
 from typing import List, Optional
+from datetime import datetime
 
 from database import get_db
 import models
@@ -15,11 +16,15 @@ router = APIRouter(
 @router.get("", response_model=schemas.VideoListResponse)
 def get_videos(
     category_ids: Optional[List[int]] = Query(None, description="Filter by category IDs (OR condition by default if multiple)"),
+    exclude_ids: Optional[List[str]] = Query(None, description="Filter out specific video IDs (e.g., currently trending ones)"),
     limit: int = Query(20, ge=1, le=100, description="Items per page"),
     offset: int = Query(0, ge=0, description="Pagination offset"),
     db: Session = Depends(get_db)
 ):
     query = db.query(models.Video)
+
+    if exclude_ids:
+        query = query.filter(models.Video.video_id.not_in(exclude_ids))
 
     # Filtering by categories (Faceted Search Logic)
     # Categories from the same parent act as OR.
@@ -44,8 +49,47 @@ def get_videos(
             )
             query = query.filter(models.Video.video_id.in_(subquery))
     
-    # Applying order by view_count DESC
-    query = query.order_by(desc(models.Video.view_count))
+    from sqlalchemy import case, or_
+
+    # Applying order by Time-Decay Score + Daily Random Variation + Shorts Penalty
+    today_seed = datetime.utcnow().strftime('%Y%m%d')
+    days_passed = func.julianday('now') - func.julianday(models.Video.published_at)
+    decay_factor = func.power((days_passed + 1), 1.5)
+    
+    random_modifier = 1.0 + ((models.Video.view_count % 100) - 50) / 100.0
+    
+    # Identify shorts and non-food content (SQLite LIKE is case-insensitive for ASCII)
+    is_penalized = or_(
+        models.Video.title.like('%shorts%'),
+        models.Video.title.like('%shrots%'),
+        models.Video.title.like('%short%'),
+        models.Video.title.like('%쇼츠%'),
+        models.Video.title.like('%1분%'),
+        models.Video.title.like('%1 minute%'),
+        models.Video.title.like('%틱톡%'),
+        models.Video.title.like('%tiktok%'),
+        models.Video.title.like('%브이로그%'),
+        models.Video.title.like('%vlog%'),
+        models.Video.title.like('%패션%'),
+        models.Video.title.like('%옷%'),
+        models.Video.title.like('%일상%'),
+        models.Video.title.like('%다이어트%'),
+        models.Video.title.like('%동대문%'),
+        models.Video.title.like('%언박싱%'),
+        models.Video.title.like('%하울%'),
+        models.Video.title.like('%다이소%'),
+        models.Video.title.like('%쇼핑%'),
+        models.Video.channel_name.like('%1분%'),
+        models.Video.channel_name.like('%자취요리신%'),
+        models.Video.channel_name.like('%레시피 읽어주는 여자%'),
+        models.Video.channel_name.like('%뚝딱이형%'),
+        models.Video.channel_name.like('%퉁키%')
+    )
+    
+    # Apply a 99.9% penalty to penalized videos' scores
+    short_penalty = case((is_penalized, 0.001), else_=1.0)
+    
+    query = query.order_by(desc((models.Video.view_count * random_modifier * short_penalty) / decay_factor))
 
     # Getting total count
     total = query.with_entities(func.count(models.Video.video_id)).scalar()
@@ -57,3 +101,69 @@ def get_videos(
         total=total or 0,
         videos=videos
     )
+
+@router.get("/trending", response_model=List[schemas.VideoWithCategories])
+def get_trending_videos(
+    period: str = Query("weekly", description="Period: daily, weekly, monthly"),
+    limit: int = Query(10, ge=1, le=50, description="Number of top videos to return"),
+    db: Session = Depends(get_db)
+):
+    from datetime import datetime, timedelta
+    
+    now = datetime.utcnow()
+    
+    if period == "daily":
+        time_threshold = now - timedelta(days=2) # Using 2 days to ensure we have enough data
+    elif period == "weekly":
+        time_threshold = now - timedelta(days=7)
+    elif period == "monthly":
+        time_threshold = now - timedelta(days=30)
+    else:
+        raise HTTPException(status_code=400, detail="Invalid period. Must be daily, weekly, or monthly.")
+        
+    is_penalized = or_(
+        models.Video.title.like('%shorts%'),
+        models.Video.title.like('%shrots%'),
+        models.Video.title.like('%short%'),
+        models.Video.title.like('%쇼츠%'),
+        models.Video.title.like('%1분%'),
+        models.Video.title.like('%1 minute%'),
+        models.Video.title.like('%틱톡%'),
+        models.Video.title.like('%tiktok%'),
+        models.Video.title.like('%브이로그%'),
+        models.Video.title.like('%vlog%'),
+        models.Video.title.like('%패션%'),
+        models.Video.title.like('%옷%'),
+        models.Video.title.like('%일상%'),
+        models.Video.title.like('%다이어트%'),
+        models.Video.title.like('%동대문%'),
+        models.Video.title.like('%언박싱%'),
+        models.Video.title.like('%하울%'),
+        models.Video.title.like('%다이소%'),
+        models.Video.title.like('%쇼핑%'),
+        models.Video.channel_name.like('%1분%'),
+        models.Video.channel_name.like('%자취요리신%'),
+        models.Video.channel_name.like('%레시피 읽어주는 여자%'),
+        models.Video.channel_name.like('%뚝딱이형%'),
+        models.Video.channel_name.like('%퉁키%')
+    )
+    short_penalty = case((is_penalized, 0.001), else_=1.0)
+        
+    query = db.query(models.Video)\
+              .filter(models.Video.published_at >= time_threshold)\
+              .order_by(desc(models.Video.view_count * short_penalty))\
+              .limit(limit)
+              
+    videos = query.all()
+    
+    # If not enough recent videos are found, fallback to slightly older ones
+    # to ensure the UI isn't empty if no one uploaded in the exact timeframe.
+    if len(videos) < limit // 2:
+        fallback_threshold = time_threshold - timedelta(days=14)
+        query = db.query(models.Video)\
+                  .filter(models.Video.published_at >= fallback_threshold)\
+                  .order_by(desc(models.Video.view_count * short_penalty))\
+                  .limit(limit)
+        videos = query.all()
+        
+    return videos

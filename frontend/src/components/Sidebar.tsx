@@ -28,16 +28,16 @@ export default function Sidebar({ categories, selectedCategories, onChange }: Si
     }, [categories]);
 
     return (
-        <aside className="w-72 flex-shrink-0 bg-[#141414] border-r border-gray-800 h-[calc(100vh-64px)] overflow-y-auto hidden md:block custom-scrollbar">
-            <div className="p-6">
-                <div className="flex items-center justify-between mb-6">
-                    <h2 className="text-lg font-bold text-white tracking-tight">취향 검색</h2>
+        <aside className="w-64 flex-shrink-0 bg-[#141414] border-r border-gray-800 hidden md:block">
+            <div className="p-4">
+                <div className="flex items-center justify-between mb-4">
+                    <h2 className="text-sm font-bold text-white tracking-tight">취향 검색</h2>
                     {selectedCategories.length > 0 && (
                         <span className="text-xs text-red-500 font-medium">{selectedCategories.length}개 선택됨</span>
                     )}
                 </div>
 
-                <div className="space-y-4">
+                <div>
                     {facetGroups.map((group) => {
                         // Find all descendants of this group to show as checkboxes
                         // Simple 1-level children for faceted search demo
@@ -53,7 +53,7 @@ export default function Sidebar({ categories, selectedCategories, onChange }: Si
                             <div key={group.category_id} className="border border-gray-800 rounded-lg overflow-hidden bg-[#1a1a1a]">
                                 <button
                                     onClick={() => toggleSection(group.category_id)}
-                                    className="w-full flex items-center justify-between p-4 hover:bg-[#202020] transition-colors"
+                                    className="w-full flex items-center justify-between px-3 py-2 hover:bg-[#202020] transition-colors"
                                 >
                                     <div className="flex items-center gap-2">
                                         <h3 className="text-sm font-semibold text-gray-200">{group.name}</h3>
@@ -67,7 +67,7 @@ export default function Sidebar({ categories, selectedCategories, onChange }: Si
                                 </button>
 
                                 {isOpen && (
-                                    <div className="p-4 pt-0 space-y-3">
+                                    <div className="px-3 pb-2 pt-0 space-y-1.5">
                                         {options.map(option => {
                                             const isSelected = selectedCategories.includes(option.category_id);
                                             // Mock video count for faceted UI demo purposes

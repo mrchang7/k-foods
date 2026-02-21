@@ -1,0 +1,26 @@
+# Environment variables (contains API keys - NEVER commit)
+.env
+.env.local
+.env.*
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.egg-info/
+.venv/
+venv/
+
+# Next.js
+.next/
+node_modules/
+out/
+
+# Logs
+*.log
+sync_log.txt
+
+# OS
+.DS_Store
+Thumbs.db

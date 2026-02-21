@@ -24,16 +24,17 @@ interface VideoGridProps {
     categories: Category[];
     selectedCategories: number[];
     onRemoveCategory: (id: number) => void;
+    excludeVideoIds?: string[];
 }
 
-export default function VideoGrid({ categories, selectedCategories, onRemoveCategory }: VideoGridProps) {
+export default function VideoGrid({ categories, selectedCategories, onRemoveCategory, excludeVideoIds = [] }: VideoGridProps) {
     const [videos, setVideos] = useState<Video[]>([]);
     const [page, setPage] = useState(0);
     const [loading, setLoading] = useState(false);
     const [hasMore, setHasMore] = useState(true);
     const [total, setTotal] = useState(0);
     const observerTarget = useRef<HTMLDivElement>(null);
-    const limit = 20;
+    const limit = 40;
 
     // Resolve selected category names
     const activeFilters = categories.filter(c => selectedCategories.includes(c.category_id));
@@ -61,6 +62,12 @@ export default function VideoGrid({ categories, selectedCategories, onRemoveCate
                 });
             }
 
+            if (excludeVideoIds.length > 0) {
+                excludeVideoIds.forEach(id => {
+                    query += `&exclude_ids=${id}`;
+                });
+            }
+
             const res = await fetch(query);
             if (!res.ok) throw new Error("Failed to fetch videos");
 
@@ -69,12 +76,15 @@ export default function VideoGrid({ categories, selectedCategories, onRemoveCate
             setVideos((prev) => (page === 0 ? data.videos : [...prev, ...data.videos]));
             setTotal(data.total);
 
-            // If we received fewer items than requested, we've reached the end
-            if (data.videos.length < limit) {
-                setHasMore(false);
-            } else {
-                setPage((prev) => prev + 1);
+            // If the backend returns 0 items, we've definitively reached the end.
+            if (data.videos.length === 0 || data.videos.length < limit) {
+                // To be completely safe with deduplication potentially starving out a page,
+                // we only rely on length === 0 to actually kill the infinite scroll, 
+                // but if it's less than limit initially, we also know we're at the very end.
+                setHasMore(data.videos.length === limit);
             }
+
+            setPage((prev) => prev + 1);
         } catch (error) {
             console.error("Error loading videos:", error);
         } finally {
@@ -91,7 +101,7 @@ export default function VideoGrid({ categories, selectedCategories, onRemoveCate
                     loadVideos();
                 }
             },
-            { threshold: 1.0 }
+            { threshold: 0, rootMargin: "600px" }
         );
 
         if (observerTarget.current) {
@@ -102,32 +112,59 @@ export default function VideoGrid({ categories, selectedCategories, onRemoveCate
     }, [loadVideos, loading, hasMore]);
 
 
-    // Channel Deduplication Logic: Prevent adjacent videos from the same channel
+    // Strict Maximum Spread Channel Deduplication: Sliding Window with Deferred Queue
     const deduplicateVideos = (vids: Video[]): Video[] => {
         if (vids.length === 0) return [];
-        const result: Video[] = [vids[0]];
-        const remaining = vids.slice(1);
 
-        let i = 0;
-        while (remaining.length > 0 && i < 100) { // Limit iterations to avoid infinite loop
-            let found = false;
-            for (let j = 0; j < remaining.length; j++) {
-                if (remaining[j].channel_name !== result[result.length - 1].channel_name) {
-                    result.push(remaining.splice(j, 1)[0]);
-                    found = true;
+        const result: Video[] = [];
+        const WINDOW_SIZE = 12; // Approximate size of a "screen"
+        const MAX_PER_WINDOW = 2; // Strict limit: max 2 videos from same channel per screen
+
+        // We will process the incoming fetched videos in order, but defer those that 
+        // violate the window constraint until the window shifts enough.
+        const pending = [...vids];
+        const deferred: Video[] = [];
+
+        while (pending.length > 0) {
+            let madeProgress = false;
+
+            // Try pending queue first
+            for (let i = 0; i < pending.length; i++) {
+                const v = pending[i];
+                const windowStart = Math.max(0, result.length - WINDOW_SIZE);
+                let countInWindow = 0;
+
+                for (let j = windowStart; j < result.length; j++) {
+                    if (result[j].channel_name === v.channel_name) {
+                        countInWindow++;
+                    }
+                }
+
+                if (countInWindow < MAX_PER_WINDOW) {
+                    result.push(v);
+                    pending.splice(i, 1);
+                    madeProgress = true;
                     break;
                 }
             }
-            if (!found) {
-                // If no different channel found, just push the first remaining
-                result.push(remaining.splice(0, 1)[0]);
+
+            // If we couldn't place any pending video due to strict constraints,
+            // we have a "deadlock" for the current window.
+            // Move the remaining pending videos to deferred, they will just be appended 
+            // once we cannot satisfy the rule.
+            if (!madeProgress) {
+                break;
             }
-            i++;
         }
-        return [...result, ...remaining];
+
+        // Any videos strictly violating the rule that couldn't be placed are just pushed to the end.
+        // This ensures they are technically still in the list (so infinite scroll math works)
+        // but pushed far down.
+        return [...result, ...pending];
     };
 
-    const displayVideos = deduplicateVideos(videos);
+    const displayableVideos = videos.filter(v => !excludeVideoIds.includes(v.video_id));
+    const displayVideos = deduplicateVideos(displayableVideos);
 
     return (
         <section className="flex-1 min-w-0">
@@ -135,7 +172,7 @@ export default function VideoGrid({ categories, selectedCategories, onRemoveCate
             <div className="flex flex-col md:flex-row md:items-end justify-between mb-8 gap-4">
                 <div>
                     <h1 className="text-2xl md:text-3xl font-bold text-white mb-4">
-                        이런 요리 어때요?
+                        오늘 뭐 먹지?
                     </h1>
                     {/* Active Filter Chips */}
                     <div className="flex flex-wrap gap-2">
@@ -151,7 +188,7 @@ export default function VideoGrid({ categories, selectedCategories, onRemoveCate
                                 </button>
                             ))
                         ) : (
-                            <span className="text-gray-500 text-sm">다양한 요리를 만나보세요</span>
+                            <span className="text-gray-500 text-sm">당신의 입맛에 딱 맞는 다양한 요리를 찾아보세요 ✨</span>
                         )}
                     </div>
                 </div>
@@ -160,7 +197,7 @@ export default function VideoGrid({ categories, selectedCategories, onRemoveCate
                 </p>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-x-6 gap-y-10 mb-12">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-x-6 gap-y-6 mb-12">
                 {displayVideos.map((video, index) => (
                     <VideoCard key={`${video.video_id}-${index}`} video={video} />
                 ))}

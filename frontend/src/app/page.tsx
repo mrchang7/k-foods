@@ -5,6 +5,7 @@ import Sidebar, { Category } from "@/components/Sidebar";
 import VideoGrid from "@/components/VideoGrid";
 import Header from "@/components/Header";
 import HeroSection from "@/components/HeroSection";
+import TrendingSection from "@/components/TrendingSection";
 import { Filter } from "lucide-react";
 
 export default function Home() {
@@ -12,6 +13,9 @@ export default function Home() {
   const [selectedCategories, setSelectedCategories] = useState<number[]>([]);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isMobileFilterOpen, setIsMobileFilterOpen] = useState(false);
+
+  // State to hold currently trending videos so we don't repeat them right below
+  const [trendingVideoIds, setTrendingVideoIds] = useState<string[]>([]);
 
   // Fetch categories on mount
   useEffect(() => {
@@ -49,8 +53,13 @@ export default function Home() {
         onMenuClick={() => setIsMobileMenuOpen(true)}
       />
 
-      {/* Show Hero only when no filters are applied (Browsing mode) */}
-      {selectedCategories.length === 0 && <HeroSection />}
+      {/* Show Hero and Trending only when no filters are applied (Browsing mode) */}
+      {selectedCategories.length === 0 && (
+        <>
+          <HeroSection />
+          <TrendingSection onVideosLoaded={setTrendingVideoIds} />
+        </>
+      )}
 
       <div className="flex flex-1 max-w-[1600px] w-full mx-auto relative">
         {/* Desktop Sidebar */}
@@ -82,6 +91,7 @@ export default function Home() {
             categories={categories}
             selectedCategories={selectedCategories}
             onRemoveCategory={handleRemoveCategory}
+            excludeVideoIds={selectedCategories.length === 0 ? trendingVideoIds : []}
           />
         </main>
       </div>

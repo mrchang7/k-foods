@@ -51,29 +51,21 @@ export default function Header({ categories, onMenuClick }: HeaderProps) {
 
                     {/* Mega Menu Dropdown Panel */}
                     {hoveredMenu && (
-                        <div className="absolute top-[100%] left-1/2 -translate-x-1/2 w-[800px] bg-[#1a1a1a] shadow-2xl border border-gray-800 rounded-b-xl overflow-hidden shadow-black/50 animate-in slide-in-from-top-2 duration-200">
-                            <div className="p-8 grid grid-cols-4 gap-8">
-                                {/* Render Level 2 Columns for the hovered Level 1 */}
-                                {categories.filter(c => c.parent_id === hoveredMenu).map(subCat => (
-                                    <div key={subCat.category_id} className="flex flex-col gap-3">
-                                        <h4 className="text-white font-semibold text-sm border-b border-gray-800 pb-2">{subCat.name}</h4>
-                                        <ul className="space-y-2">
-                                            {categories.filter(leaf => leaf.parent_id === subCat.category_id).map(leafCat => (
-                                                <li key={leafCat.category_id}>
-                                                    <Link href={`/?category=${leafCat.category_id}`} className="text-sm text-gray-400 hover:text-white transition-colors">
-                                                        {leafCat.name}
-                                                    </Link>
-                                                </li>
-                                            ))}
-                                        </ul>
-                                        {/* If it doesn't have grand-children, maybe just allow clicking the subcat itself */}
-                                        {categories.filter(leaf => leaf.parent_id === subCat.category_id).length === 0 && (
-                                            <Link href={`/?category=${subCat.category_id}`} className="text-sm text-gray-400 hover:text-white transition-colors">
-                                                View all {subCat.name}...
-                                            </Link>
-                                        )}
-                                    </div>
-                                ))}
+                        <div className="absolute top-[100%] left-1/2 -translate-x-1/2 min-w-[400px] bg-[#1a1a1a] shadow-2xl border border-gray-800 rounded-b-xl overflow-hidden animate-in slide-in-from-top-2 duration-200">
+                            <div className="p-6 grid grid-cols-3 gap-2">
+                                {categories
+                                    .filter(c => c.parent_id === hoveredMenu)
+                                    .map(subCat => (
+                                        <Link
+                                            key={subCat.category_id}
+                                            href={`/?category=${subCat.category_id}`}
+                                            onClick={() => setHoveredMenu(null)}
+                                            className="px-3 py-2 text-sm text-gray-300 hover:text-white hover:bg-white/5 rounded-lg transition-colors"
+                                        >
+                                            {subCat.name}
+                                        </Link>
+                                    ))
+                                }
                             </div>
                         </div>
                     )}
