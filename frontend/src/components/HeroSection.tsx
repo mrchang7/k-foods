@@ -8,7 +8,7 @@ export default function HeroSection() {
             <div className="w-full max-w-[1600px] relative aspect-[21/9] md:aspect-[24/7] rounded-2xl overflow-hidden shadow-2xl group cursor-pointer">
                 {/* Placeholder Hero Image */}
                 <Image
-                    src="https://images.unsplash.com/photo-1548174780-1a74d2ba74c5?q=80&w=2000&auto=format&fit=crop"
+                    src="https://images.unsplash.com/photo-1541696432-82c6da8ce7bf?q=80&w=2000&auto=format&fit=crop"
                     alt="Hero Banner"
                     fill
                     className="object-cover group-hover:scale-105 transition-transform duration-700"

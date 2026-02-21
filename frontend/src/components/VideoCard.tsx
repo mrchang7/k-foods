@@ -1,3 +1,6 @@
+"use client";
+
+import { useState } from "react";
 import Image from "next/image";
 
 interface Category {
@@ -18,12 +21,29 @@ interface Video {
 }
 
 export default function VideoCard({ video }: { video: Video }) {
+    const [imgSrc, setImgSrc] = useState(video.thumbnail_url || "https://via.placeholder.com/320x180");
+    const [errorCount, setErrorCount] = useState(0);
+
     // Format view count (e.g., 1500000 -> 150만)
     const formatViews = (views: number) => {
         if (views >= 10000) {
             return `${(views / 10000).toFixed(0)}만회`;
         }
         return `${views.toLocaleString()}회`;
+    };
+
+    const handleImageError = () => {
+        if (errorCount === 0) {
+            // Try mqdefault if hqdefault fails
+            if (imgSrc.includes("hqdefault")) {
+                setImgSrc(imgSrc.replace("hqdefault", "mqdefault"));
+            } else {
+                setImgSrc("https://via.placeholder.com/320x180?text=No+Thumbnail");
+            }
+            setErrorCount(1);
+        } else {
+            setImgSrc("https://via.placeholder.com/320x180?text=No+Thumbnail");
+        }
     };
 
     return (
@@ -35,11 +55,13 @@ export default function VideoCard({ video }: { video: Video }) {
         >
             <div className="relative aspect-video w-full rounded-lg overflow-hidden bg-gray-800">
                 <Image
-                    src={video.thumbnail_url || "https://via.placeholder.com/320x180"}
+                    src={imgSrc}
                     alt={video.title}
                     fill
                     className="object-cover group-hover:brightness-110 transition-all"
                     sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+                    unoptimized={true}
+                    onError={handleImageError}
                 />
                 <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex items-end p-3">
                     <span className="bg-red-600 text-white text-xs font-bold px-2 py-1 rounded">▶ 재생</span>
