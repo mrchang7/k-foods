@@ -25,6 +25,7 @@ class VideoBase(BaseModel):
     view_count: int
     published_at: Optional[datetime] = None
     url: str
+    recipe_memo: Optional[str] = None
 
 class VideoWithCategories(VideoBase):
     categories: List[CategoryBase] = []

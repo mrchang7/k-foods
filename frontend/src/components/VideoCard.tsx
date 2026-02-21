@@ -18,6 +18,7 @@ interface Video {
     view_count: number;
     published_at: string;
     url: string;
+    recipe_memo?: string;
     categories: Category[];
 }
 
@@ -54,6 +55,7 @@ export default function VideoCard({ video }: { video: Video }) {
                     videoId={video.video_id}
                     title={video.title}
                     channelName={video.channel_name}
+                    recipeMemo={video.recipe_memo}
                     onClose={() => setShowModal(false)}
                 />
             )}
@@ -86,8 +88,13 @@ export default function VideoCard({ video }: { video: Video }) {
                         <span>{formatViews(video.view_count)}</span>
                     </div>
 
-                    {/* Category Badges */}
+                    {/* Category & Recipe Badges */}
                     <div className="flex flex-wrap gap-1 mt-2">
+                        {video.recipe_memo && (
+                            <span className="px-2 py-0.5 text-[10px] font-bold rounded-full bg-red-900/40 text-red-400 border border-red-800/50">
+                                📋 레시피
+                            </span>
+                        )}
                         {video.categories.map((cat) => (
                             <span
                                 key={cat.category_id}

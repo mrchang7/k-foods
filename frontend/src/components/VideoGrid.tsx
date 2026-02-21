@@ -17,6 +17,7 @@ interface Video {
     view_count: number;
     published_at: string;
     url: string;
+    recipe_memo?: string;
     categories: Category[];
 }
 
@@ -25,9 +26,11 @@ interface VideoGridProps {
     selectedCategories: number[];
     onRemoveCategory: (id: number) => void;
     excludeVideoIds?: string[];
+    searchQuery?: string;
+    onClearSearch?: () => void;
 }
 
-export default function VideoGrid({ categories, selectedCategories, onRemoveCategory, excludeVideoIds = [] }: VideoGridProps) {
+export default function VideoGrid({ categories, selectedCategories, onRemoveCategory, excludeVideoIds = [], searchQuery = "", onClearSearch }: VideoGridProps) {
     const [videos, setVideos] = useState<Video[]>([]);
     const [page, setPage] = useState(0);
     const [loading, setLoading] = useState(false);
@@ -39,12 +42,12 @@ export default function VideoGrid({ categories, selectedCategories, onRemoveCate
     // Resolve selected category names
     const activeFilters = categories.filter(c => selectedCategories.includes(c.category_id));
 
-    // Reset videos and page when filters change
+    // Reset videos and page when filters or search change
     useEffect(() => {
         setVideos([]);
         setPage(0);
         setHasMore(true);
-    }, [selectedCategories]);
+    }, [selectedCategories, searchQuery]);
 
     const loadVideos = useCallback(async () => {
         if (loading || !hasMore) return;
@@ -52,9 +55,13 @@ export default function VideoGrid({ categories, selectedCategories, onRemoveCate
 
         try {
             const offset = page * limit;
-            const apiBase = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+            const apiBase = process.env.NEXT_PUBLIC_API_URL || "";
 
             let query = `${apiBase}/api/videos?limit=${limit}&offset=${offset}`;
+
+            if (searchQuery) {
+                query += `&q=${encodeURIComponent(searchQuery)}`;
+            }
 
             if (selectedCategories.length > 0) {
                 selectedCategories.forEach(id => {
@@ -90,7 +97,7 @@ export default function VideoGrid({ categories, selectedCategories, onRemoveCate
         } finally {
             setLoading(false);
         }
-    }, [page, selectedCategories, loading, hasMore]);
+    }, [page, selectedCategories, searchQuery, loading, hasMore, excludeVideoIds]);
 
 
     // Intersection Observer for Infinite Scroll
@@ -123,7 +130,7 @@ export default function VideoGrid({ categories, selectedCategories, onRemoveCate
         // We will process the incoming fetched videos in order, but defer those that 
         // violate the window constraint until the window shifts enough.
         const pending = [...vids];
-        const deferred: Video[] = [];
+
 
         while (pending.length > 0) {
             let madeProgress = false;
@@ -167,35 +174,72 @@ export default function VideoGrid({ categories, selectedCategories, onRemoveCate
     const displayVideos = deduplicateVideos(displayableVideos);
 
     return (
-        <section className="flex-1 min-w-0">
+        <section className="flex-1 min-w-0 p-4 md:p-6 lg:p-8">
             {/* Header with Title & Filters */}
-            <div className="flex flex-col md:flex-row md:items-end justify-between mb-8 gap-4">
-                <div>
-                    <h1 className="text-2xl md:text-3xl font-bold text-white mb-4">
-                        오늘 뭐 먹지?
-                    </h1>
-                    {/* Active Filter Chips */}
-                    <div className="flex flex-wrap gap-2">
-                        {activeFilters.length > 0 ? (
-                            activeFilters.map(filter => (
-                                <button
-                                    key={filter.category_id}
-                                    onClick={() => onRemoveCategory(filter.category_id)}
-                                    className="flex items-center gap-1.5 px-3 py-1 bg-[#202020] border border-gray-700 hover:border-red-500 rounded-full text-sm text-gray-200 transition-colors group"
-                                >
-                                    <span className="text-red-500 font-bold mr-1">Ⓧ</span>
-                                    {filter.name}
-                                </button>
-                            ))
-                        ) : (
-                            <span className="text-gray-500 text-sm">당신의 입맛에 딱 맞는 다양한 요리를 찾아보세요 ✨</span>
+            <div className="flex flex-col mb-5 gap-3 relative -top-3">
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 w-full">
+                    <div className="flex flex-wrap items-center gap-3 md:gap-4">
+                        <h1 className="text-2xl md:text-3xl font-bold text-white">
+                            {searchQuery ? (
+                                <div className="flex items-baseline gap-2">
+                                    <span className="text-transparent bg-clip-text bg-gradient-to-r from-red-400 to-orange-400">&ldquo;{searchQuery}&rdquo;</span>
+                                    <span className="text-gray-400 font-normal text-xl">관련 요리 레시피</span>
+                                </div>
+                            ) : (
+                                <div className="flex items-end gap-3">
+                                    <span>오늘 뭐해 먹지?</span>
+                                    {!searchQuery && activeFilters.length === 0 && (
+                                        <span className="text-gray-400 text-sm font-normal hidden sm:inline-block mb-1">
+                                            당신의 입맛에 딱 맞는 다양한 요리를 찾아보세요 ✨
+                                        </span>
+                                    )}
+                                </div>
+                            )}
+                        </h1>
+                        {searchQuery && onClearSearch && (
+                            <button
+                                onClick={onClearSearch}
+                                className="flex items-center gap-1.5 px-3 py-1.5 bg-[#202020] hover:bg-[#2a2a2a] border border-gray-700 hover:border-red-500 rounded-full text-sm text-gray-300 hover:text-white transition-all shadow-sm"
+                            >
+                                <span className="text-red-500 font-bold">←</span> 전체 목록 보기
+                            </button>
                         )}
                     </div>
+
+                    <div className="flex items-center">
+                        <p className="text-gray-400 text-sm whitespace-nowrap">
+                            {searchQuery ? "검색 결과" : "추천 레시피"}: <span className="text-white font-semibold">{total.toLocaleString()}</span>개
+                        </p>
+                    </div>
                 </div>
-                <p className="text-gray-400 text-sm whitespace-nowrap">
-                    추천 레시피: <span className="text-white font-semibold">{total.toLocaleString()}</span>개
-                </p>
+
+                {/* Active Filter Chips */}
+                {activeFilters.length > 0 && (
+                    <div className="flex flex-wrap gap-2">
+                        {activeFilters.map(filter => (
+                            <button
+                                key={filter.category_id}
+                                onClick={() => onRemoveCategory(filter.category_id)}
+                                className="flex items-center gap-1.5 px-3 py-1 bg-[#202020] border border-gray-700 hover:border-red-500 rounded-full text-sm text-gray-200 transition-colors group"
+                            >
+                                <span className="text-red-500 font-bold mr-1">Ⓧ</span>
+                                {filter.name}
+                            </button>
+                        ))}
+                    </div>
+                )}
             </div>
+
+            {/* Empty state for search */}
+            {searchQuery && !loading && displayVideos.length === 0 && (
+                <div className="flex flex-col items-center justify-center py-24 text-center">
+                    <span className="text-5xl mb-4">🍽️</span>
+                    <p className="text-xl font-semibold text-white mb-2">
+                        &ldquo;{searchQuery}&rdquo; 검색 결과가 없어요
+                    </p>
+                    <p className="text-gray-500 text-sm">다른 키워드로 검색해 보세요</p>
+                </div>
+            )}
 
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-x-6 gap-y-6 mb-12">
                 {displayVideos.map((video, index) => (

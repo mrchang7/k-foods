@@ -17,6 +17,7 @@ router = APIRouter(
 def get_videos(
     category_ids: Optional[List[int]] = Query(None, description="Filter by category IDs (OR condition by default if multiple)"),
     exclude_ids: Optional[List[str]] = Query(None, description="Filter out specific video IDs (e.g., currently trending ones)"),
+    q: Optional[str] = Query(None, description="Text search on title and channel name"),
     limit: int = Query(20, ge=1, le=100, description="Items per page"),
     offset: int = Query(0, ge=0, description="Pagination offset"),
     db: Session = Depends(get_db)
@@ -25,6 +26,15 @@ def get_videos(
 
     if exclude_ids:
         query = query.filter(models.Video.video_id.not_in(exclude_ids))
+
+    # Full-text search filter (title or channel name)
+    if q:
+        query = query.filter(
+            or_(
+                models.Video.title.like(f"%{q}%"),
+                models.Video.channel_name.like(f"%{q}%"),
+            )
+        )
 
     # Filtering by categories (Faceted Search Logic)
     # Categories from the same parent act as OR.
@@ -49,9 +59,22 @@ def get_videos(
             )
             query = query.filter(models.Video.video_id.in_(subquery))
     
-    from sqlalchemy import case, or_
+    # When searching by keyword, sort by pure view count (more relevant).
+    # Otherwise, use Time-Decay Score + Daily Random Variation + Shorts Penalty.
+    if q:
+        query = query.order_by(desc(models.Video.view_count))
 
-    # Applying order by Time-Decay Score + Daily Random Variation + Shorts Penalty
+        # Getting total count
+        total = query.with_entities(func.count(models.Video.video_id)).scalar()
+
+        # Pagination
+        videos = query.offset(offset).limit(limit).all()
+
+        return schemas.VideoListResponse(
+            total=total or 0,
+            videos=videos
+        )
+
     today_seed = datetime.utcnow().strftime('%Y%m%d')
     days_passed = func.julianday('now') - func.julianday(models.Video.published_at)
     decay_factor = func.power((days_passed + 1), 1.5)
@@ -106,6 +129,7 @@ def get_videos(
 def get_trending_videos(
     period: str = Query("weekly", description="Period: daily, weekly, monthly"),
     limit: int = Query(10, ge=1, le=50, description="Number of top videos to return"),
+    offset: int = Query(0, ge=0, description="Pagination offset"),
     db: Session = Depends(get_db)
 ):
     from datetime import datetime, timedelta
@@ -152,6 +176,7 @@ def get_trending_videos(
     query = db.query(models.Video)\
               .filter(models.Video.published_at >= time_threshold)\
               .order_by(desc(models.Video.view_count * short_penalty))\
+              .offset(offset)\
               .limit(limit)
               
     videos = query.all()
@@ -163,6 +188,7 @@ def get_trending_videos(
         query = db.query(models.Video)\
                   .filter(models.Video.published_at >= fallback_threshold)\
                   .order_by(desc(models.Video.view_count * short_penalty))\
+                  .offset(offset)\
                   .limit(limit)
         videos = query.all()
         

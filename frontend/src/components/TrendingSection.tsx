@@ -17,6 +17,7 @@ interface Video {
     view_count: number;
     published_at: string;
     url: string;
+    recipe_memo?: string;
     categories: Category[];
 }
 
@@ -36,7 +37,7 @@ export default function TrendingSection({ onVideosLoaded }: TrendingSectionProps
         const fetchTrending = async () => {
             setLoading(true);
             try {
-                const baseUrl = process.env.NEXT_PUBLIC_API_URL || "http://10.0.0.241:8000";
+                const baseUrl = process.env.NEXT_PUBLIC_API_URL || "";
                 const response = await fetch(`${baseUrl}/api/videos/trending?period=${period}&limit=10`);
                 if (response.ok) {
                     const data: Video[] = await response.json();
@@ -69,12 +70,12 @@ export default function TrendingSection({ onVideosLoaded }: TrendingSectionProps
     };
 
     return (
-        <section className="w-full max-w-[1600px] mx-auto px-4 md:px-8 py-10">
+        <section className="w-full max-w-[1600px] mx-auto px-4 md:px-8 pt-2 pb-10">
             {/* Header */}
             <div className="flex flex-col md:flex-row md:items-end justify-between mb-6 gap-4 border-b border-gray-800 pb-4">
                 <div className="flex items-center gap-3">
                     <h2 className="text-2xl font-bold flex items-center gap-2">
-                        <span className="text-red-500">🔥</span> 실시간 인기 급상승
+                        <span className="text-red-500">🔥</span> 최근 인기 레시피
                     </h2>
                     <span className="text-gray-400 text-sm hidden sm:inline-block">
                         요즘 가장 핫한 레시피를 만나보세요

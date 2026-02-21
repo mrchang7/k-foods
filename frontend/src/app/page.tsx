@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import Sidebar, { Category } from "@/components/Sidebar";
 import VideoGrid from "@/components/VideoGrid";
 import Header from "@/components/Header";
@@ -11,8 +11,16 @@ import { Filter } from "lucide-react";
 export default function Home() {
   const [categories, setCategories] = useState<Category[]>([]);
   const [selectedCategories, setSelectedCategories] = useState<number[]>([]);
-  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [, setIsMobileMenuOpen] = useState(false);
   const [isMobileFilterOpen, setIsMobileFilterOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+
+  // A shared setter that both Header and HeroSection can call
+  const handleSearch = useCallback((q: string) => {
+    setSearchQuery(q);
+    // Clear category filters on any search or search-clear (e.g., Logo click)
+    setSelectedCategories([]);
+  }, []);
 
   // State to hold currently trending videos so we don't repeat them right below
   const [trendingVideoIds, setTrendingVideoIds] = useState<string[]>([]);
@@ -21,7 +29,7 @@ export default function Home() {
   useEffect(() => {
     const fetchCategories = async () => {
       try {
-        const apiBase = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+        const apiBase = process.env.NEXT_PUBLIC_API_URL || "";
         const res = await fetch(`${apiBase}/api/categories`);
         if (res.ok) {
           const data = await res.json();
@@ -35,6 +43,8 @@ export default function Home() {
   }, []);
 
   const handleCategoryChange = (categoryId: number) => {
+    // When selecting a category, clear search query
+    if (searchQuery) setSearchQuery("");
     setSelectedCategories((prev) =>
       prev.includes(categoryId)
         ? prev.filter((id) => id !== categoryId) // Remove
@@ -46,17 +56,20 @@ export default function Home() {
     setSelectedCategories(prev => prev.filter(id => id !== categoryId));
   };
 
+  const isBrowsingMode = selectedCategories.length === 0 && searchQuery === "";
+
   return (
     <div className="bg-[#141414] min-h-screen text-white font-sans flex flex-col">
       <Header
         categories={categories}
         onMenuClick={() => setIsMobileMenuOpen(true)}
+        onSearch={handleSearch}
       />
 
-      {/* Show Hero and Trending only when no filters are applied (Browsing mode) */}
-      {selectedCategories.length === 0 && (
+      {/* Show Hero and Trending only when no filters and no search (Browsing mode) */}
+      {isBrowsingMode && (
         <>
-          <HeroSection />
+          <HeroSection onSearch={handleSearch} />
           <TrendingSection onVideosLoaded={setTrendingVideoIds} />
         </>
       )}
@@ -91,7 +104,9 @@ export default function Home() {
             categories={categories}
             selectedCategories={selectedCategories}
             onRemoveCategory={handleRemoveCategory}
-            excludeVideoIds={selectedCategories.length === 0 ? trendingVideoIds : []}
+            excludeVideoIds={isBrowsingMode ? trendingVideoIds : []}
+            searchQuery={searchQuery}
+            onClearSearch={() => handleSearch("")}
           />
         </main>
       </div>
@@ -106,4 +121,3 @@ export default function Home() {
     </div>
   );
 }
-

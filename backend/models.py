@@ -21,6 +21,7 @@ class Video(Base):
     view_count = Column(Integer, default=0)
     published_at = Column(DateTime, nullable=True)
     url = Column(String, nullable=False)
+    recipe_memo = Column(String, nullable=True)
 
     # Relationships
     categories = relationship('Category', secondary=video_category_map, back_populates='videos')
