@@ -96,26 +96,4 @@ export default function Home() {
     </div>
   );
 }
-const [selectedCategories, setSelectedCategories] = useState<number[]>([]);
 
-const handleCategoryChange = (categoryId: number) => {
-  setSelectedCategories((prev) =>
-    prev.includes(categoryId)
-      ? prev.filter((id) => id !== categoryId) // Remove
-      : [...prev, categoryId]                  // Add
-  );
-};
-
-return (
-  <div className="flex bg-[#141414] min-h-screen text-white font-sans">
-    <Sidebar
-      categories={DEMO_CATEGORIES}
-      selectedCategories={selectedCategories}
-      onChange={handleCategoryChange}
-    />
-    <main className="flex-1 max-w-[1600px] mx-auto border-l border-gray-800">
-      <VideoGrid selectedCategories={selectedCategories} />
-    </main>
-  </div>
-);
-}
