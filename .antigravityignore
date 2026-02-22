@@ -1,0 +1,18 @@
+# Ignore large and binary files that cause the AI agent server to crash
+*.db
+*.sqlite
+*.sqlite3
+*.log
+sync_log.txt
+*.json
+
+# Ignore environments and dist
+backend/venv/
+backend/__pycache__/
+frontend/node_modules/
+frontend/.next/
+frontend/out/
+
+# Add explicit ignores to prevent recursive indexing
+.git/
+.env*

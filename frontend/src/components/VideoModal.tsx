@@ -22,7 +22,7 @@ declare global {
 export default function VideoModal({ videoId, title, channelName, recipeMemo, onClose }: VideoModalProps) {
     const playerContainerRef = useRef<HTMLDivElement>(null);
     const playerRef = useRef<any>(null);
-    const [showRecipe, setShowRecipe] = useState(false);
+    const [showRecipe, setShowRecipe] = useState(!!recipeMemo);
 
     // Close on Escape key
     useEffect(() => {
@@ -108,33 +108,58 @@ export default function VideoModal({ videoId, title, channelName, recipeMemo, on
             if (!trimmed) return <div key={i} className="h-3" />; // Empty spaces
 
             const isTitle = trimmed.includes("👨‍🍳");
+            if (isTitle) return null;
+
             const isHeader = trimmed.includes("📍");
+            const isIngredients = isHeader && trimmed.includes("핵심 재료");
 
             let className = "text-gray-300 ml-1 mb-2 leading-relaxed text-[15px]";
-            if (isTitle) {
-                className = "font-bold text-white text-lg mb-5 border-b border-gray-700 pb-3";
-            } else if (isHeader) {
+            if (isHeader) {
                 className = "font-semibold text-red-400 mt-6 mb-3 text-base flex items-center";
             }
 
-            const regex = /(\[\d{1,2}:\d{2}\]|\b\d{1,2}:\d{2}\b)/g;
-            const parts = trimmed.split(regex);
+            let displayText = trimmed;
+            if (!isHeader && !isTitle) {
+                displayText = displayText.replace(/\p{Extended_Pictographic}/gu, '').replace(/\s+/g, ' ').trim();
+                // strip out any leading non-alphanumeric chars left over like ')' if it was separated, but usually emojis are front
+            }
+
+            const regex = /(\[\d{1,2}:\d{2}\]|\(\d{1,2}:\d{2}\)|\b\d{1,2}:\d{2}\b)/g;
+            const parts = displayText.split(regex);
+
+            if (isIngredients) {
+                const splitIndex = displayText.indexOf(":");
+                if (splitIndex !== -1) {
+                    const label = displayText.substring(0, splitIndex + 1);
+                    const ingredients = displayText.substring(splitIndex + 1);
+                    return (
+                        <div key={i} className="mt-6 mb-3 flex items-start text-base">
+                            <span className="font-semibold text-red-400 whitespace-nowrap flex-shrink-0">{label}</span>
+                            <span className="text-gray-200 ml-2 font-medium leading-relaxed">{ingredients}</span>
+                        </div>
+                    );
+                }
+            }
 
             return (
                 <div key={i} className={className}>
                     {parts.map((part, j) => {
-                        if (regex.test(part)) {
+                        const isTime = /^\[\d{1,2}:\d{2}\]$|^\(\d{1,2}:\d{2}\)$|^\d{1,2}:\d{2}$/.test(part);
+                        if (isTime) {
+                            const timeMatch = part.match(/\d{1,2}:\d{2}/);
+                            const timeStr = timeMatch ? timeMatch[0] : part;
+
                             return (
                                 <button
                                     key={j}
                                     onClick={(e) => {
                                         e.preventDefault();
-                                        handleTimestampClick(part);
+                                        handleTimestampClick(timeStr);
                                     }}
-                                    className="underline hover:text-white transition-colors cursor-pointer"
+                                    className="text-gray-400 hover:text-white transition-colors cursor-pointer font-medium ml-1 bg-gray-800/80 hover:bg-gray-700 px-1.5 py-0.5 rounded border border-gray-700 hover:border-gray-500"
                                     title="이 시간으로 영상 이동"
                                 >
-                                    {part}
+                                    ({timeStr})
                                 </button>
                             );
                         }
@@ -144,6 +169,14 @@ export default function VideoModal({ videoId, title, channelName, recipeMemo, on
             );
         });
     };
+
+    let displayTitle = title;
+    if (recipeMemo) {
+        const titleMatch = recipeMemo.split("\n").find(line => line.includes("👨‍🍳"));
+        if (titleMatch) {
+            displayTitle = titleMatch.replace("👨‍🍳", "").trim();
+        }
+    }
 
     return (
         <div
@@ -206,7 +239,7 @@ export default function VideoModal({ videoId, title, channelName, recipeMemo, on
                     {showRecipe && recipeMemo && (
                         <div className="w-1/3 h-full bg-[#141414] border-l border-gray-800 p-6 overflow-y-auto text-gray-200">
                             <h3 className="text-xl font-bold text-white mb-6 border-b border-gray-800 pb-3 flex justify-between items-center">
-                                <span>📋 레시피 메모</span>
+                                <span>{displayTitle}</span>
                                 <span className="text-xs font-normal text-gray-500 bg-gray-900 px-2 py-1 rounded hidden lg:block">AI 자동 요약</span>
                             </h3>
 

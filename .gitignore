@@ -21,6 +21,11 @@ out/
 *.log
 sync_log.txt
 
+# Databases
+*.db
+*.sqlite
+*.sqlite3
+
 # OS
 .DS_Store
 Thumbs.db

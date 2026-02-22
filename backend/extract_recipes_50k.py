@@ -74,7 +74,7 @@ def create_prompt(url: str, title: str, content: str) -> str:
 
 조건:
 1. 레시피 본질에 집중하고, 불필요한 말은 제외하세요.
-2. 각 단계는 1줄을 넘지 않도록 명사형 종결어미(~함, ~음 등)를 사용하여 아주 간결하게 작성하세요. **조리 순서 및 문장 전체에 이모지(emoji)나 기호를 일절 사용하지 말고 오직 텍스트만 사용하세요.**
+2. 각 단계는 1줄 넘지 않도록 명사형 종결어미(~함, ~음 등)를 사용하여 아주 간결하게 작성하세요. **조리 순서 및 문장 전체에 이모지(emoji)나 기호를 일절 사용하지 말고 오직 텍스트만 사용하세요.**
 3. 조리 순서의 각 단계 맨 끝에는 해당 조리 과정이 등장하는 **영상 타임스탬프(예: (02:15))** 를 소괄호로 묶어서 써주세요.
 4. 핵심 재료는 재료명과 분량(양)을 반드시 함께 적어주세요. 여러 줄로 나누지 말고 무조건 **한 줄** 안에 쉼표(,)로 연결하여 작성하세요. (예: 감자 2개, 양파 1/2개, 간장 2큰술)
 5. 양식은 다음 구조를 엄격히 지켜주세요 (전체 7줄 이내 제한):
@@ -203,6 +203,9 @@ def extract_recipe_from_audio(video_id: str, title: str) -> Optional[str]:
             # JSON 파싱 실패시 생성된 텍스트라도 반환
             return raw_text
 
+    except ResourceExhausted:
+        print("  ⏳ Gemini Quota Exceeded (429) during audio processing.")
+        return None
     except Exception as e:
         print(f"  ❌ 오디오 추출 중 에러 발생: {e}")
         return None
@@ -223,26 +226,25 @@ def extract_recipe_from_audio(video_id: str, title: str) -> Optional[str]:
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument('--limit', type=int, default=10, help='처리할 최대 영상 개수 (테스트용 기본 10개)')
+    parser.add_argument('--min-views', type=int, default=50000, help='처리할 최소 조회수 기준 (기본 5만)')
     args = parser.parse_args()
     
     conn = sqlite3.connect('k_foods.db')
     cur = conn.cursor()
     
-    # 레시피 데이터가 없는 상위 영상들 조회
+    # 레시피 데이터가 없는 특정 조회수 이상 영상들 모두 조회
     cur.execute('''
         SELECT video_id, title FROM videos 
-        WHERE recipe_memo IS NULL OR recipe_memo = ''
-        ORDER BY view_count DESC 
-        LIMIT ?
-    ''', (args.limit,))
+        WHERE (recipe_memo IS NULL OR recipe_memo = '') AND view_count >= ?
+        ORDER BY view_count DESC
+    ''', (args.min_views,))
     
     videos = cur.fetchall()
     if not videos:
-        print("처리할 영상이 없습니다.")
+        print(f"조회수 {args.min_views} 이상인 처리할 영상이 없습니다.")
         return
         
-    print(f"총 {len(videos)}개의 영상을 처리합니다 (화면에 노출되는 상위 {args.limit}개)...")
+    print(f"총 {len(videos)}개의 영상을 천천히 백그라운드에서 처리합니다 (조회수 {args.min_views} 이상)...")
     
     youtube = build('youtube', 'v3', developerKey=YOUTUBE_API_KEY)
     
@@ -266,7 +268,7 @@ def main():
         else:
             print("  -> ⚠️ 자막이 없거나 너무 짧습니다.")
             
-        # 3. 텍스트 추출러 실패했거나 자막이 아예 없으면 오디오 통채로 분석 (최적화)
+        # 3. 텍스트 추출로 실패했거나 자막이 아예 없으면 오디오 통채로 분석 (최적화)
         if not extracted_recipe:
             extracted_recipe = extract_recipe_from_audio(video_id, title)
             
@@ -281,10 +283,14 @@ def main():
             updated_count += 1
             print("  -> ✅ 레시피 추출성공 및 데이터베이스 저장 완료!")
         else:
-            print("  -> ⚠️ 의미 있는 레시피를 추출하지 못했습니다.")
+            print("  -> ⚠️ 의미 있는 레시피를 추출하지 못했습니다. (API 제한 등)")
+            
+        # 5. 과부하 방지 및 API Limit(429) 회피 용도로 의도적 대기
+        print("  -> ⏳ 진행 속도 조절 및 서버 안정화를 위해 15초간 대기합니다...")
+        time.sleep(15)
             
     conn.close()
-    print(f"\n완료! 총 {updated_count}개의 영상에 대해 AI 레시피 요약을 저장했습니다.")
+    print(f"\\n완료! 총 {updated_count}개의 영상에 대해 AI 레시피 요약을 저장했습니다.")
 
 if __name__ == "__main__":
     main()

@@ -64,17 +64,30 @@ export default function VideoCard({ video }: { video: Video }) {
                 onClick={() => setShowModal(true)}
                 className="group flex flex-col gap-2 rounded-lg overflow-hidden transition-all duration-300 hover:scale-105 hover:bg-[#202020] p-2 -m-2 cursor-pointer"
             >
-                <div className="relative aspect-video w-full rounded-lg overflow-hidden bg-gray-800">
+                <div className="relative aspect-video w-full rounded-lg overflow-hidden bg-gray-900">
+                    {/* Blurred Background for vertical/Shorts thumbnails */}
+                    <Image
+                        src={imgSrc}
+                        alt="background"
+                        fill
+                        className="object-cover blur-xl opacity-50 scale-110"
+                        sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+                        unoptimized={true}
+                    />
+                    {/* Overlay to make the background lighter as requested */}
+                    <div className="absolute inset-0 bg-white/5 z-0" />
+
+                    {/* Main Thumbnail */}
                     <Image
                         src={imgSrc}
                         alt={video.title}
                         fill
-                        className="object-cover group-hover:brightness-110 transition-all"
+                        className="object-contain group-hover:brightness-110 transition-all z-10"
                         sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
                         unoptimized={true}
                         onError={handleImageError}
                     />
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex items-end p-3">
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex items-end p-3 z-20">
                         <span className="bg-red-600 text-white text-xs font-bold px-2 py-1 rounded">▶ 재생</span>
                     </div>
                 </div>
