@@ -41,7 +41,7 @@ export default function Sidebar({ categories, selectedCategories, onChange }: Si
             <div className="px-5 pt-6 pb-4 border-b border-gray-800">
                 <div className="flex items-center justify-between">
                     <div>
-                        <h2 className="text-base font-bold text-white">취향으로 찾기</h2>
+                        <h2 className="text-lg font-bold text-white">취향으로 찾기</h2>
                         <p className="text-xs text-gray-500 mt-0.5">원하는 조건을 선택해보세요</p>
                     </div>
                     {selectedCount > 0 && (
@@ -82,7 +82,8 @@ export default function Sidebar({ categories, selectedCategories, onChange }: Si
                     const options = categories.filter(c => c.parent_id === group.category_id);
                     if (options.length === 0) return null;
 
-                    const isDefaultOpen = group.name === "음식 종류" || group.name === "주재료";
+                    // Make all facet groups expanded by default
+                    const isDefaultOpen = true;
                     const isOpen = openSections[group.category_id] ?? isDefaultOpen;
                     const meta = GROUP_META[group.name] ?? { emoji: "📂", desc: "" };
                     const selectedInGroup = options.filter(o => selectedCategories.includes(o.category_id));
@@ -149,8 +150,8 @@ export default function Sidebar({ categories, selectedCategories, onChange }: Si
             {/* Footer hint */}
             <div className="px-5 py-3 border-t border-gray-800">
                 <p className="text-[11px] text-gray-600 text-center leading-relaxed">
-                    같은 그룹 내 선택은 <span className="text-gray-500">OR</span> 조건<br />
-                    다른 그룹 간 선택은 <span className="text-gray-500">AND</span> 조건으로 필터됩니다
+                    각 그룹별로 <span className="text-gray-500">하나씩만</span> 선택할 수 있습니다<br />
+                    그룹 간의 선택은 <span className="text-gray-500">AND</span> 조건으로 필터됩니다
                 </p>
             </div>
         </aside>

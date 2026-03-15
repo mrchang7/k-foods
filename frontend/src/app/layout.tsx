@@ -5,7 +5,7 @@ import "./globals.css";
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "Korean Food Encyclopedia | K-Food",
+  title: "K-Food 백과사전 | K-Food",
   description: "Netflix-style curation of the best Korean Food recipes from YouTube.",
 };
 

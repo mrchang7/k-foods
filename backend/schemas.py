@@ -1,4 +1,4 @@
-from pydantic import BaseModel, HttpUrl
+from pydantic import BaseModel, HttpUrl, computed_field
 from typing import List, Optional
 from datetime import datetime
 
@@ -26,6 +26,9 @@ class VideoBase(BaseModel):
     published_at: Optional[datetime] = None
     url: str
     recipe_memo: Optional[str] = None
+    duration: Optional[int] = None
+    is_short: bool = False
+    is_vertical: bool = False
 
 class VideoWithCategories(VideoBase):
     categories: List[CategoryBase] = []

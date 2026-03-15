@@ -19,6 +19,7 @@ interface Video {
     url: string;
     recipe_memo?: string;
     categories: Category[];
+    is_short?: boolean;
 }
 
 interface VideoGridProps {
@@ -28,9 +29,11 @@ interface VideoGridProps {
     excludeVideoIds?: string[];
     searchQuery?: string;
     onClearSearch?: () => void;
+    showShorts?: boolean;
+    onlyShorts?: boolean;
 }
 
-export default function VideoGrid({ categories, selectedCategories, onRemoveCategory, excludeVideoIds = [], searchQuery = "", onClearSearch }: VideoGridProps) {
+export default function VideoGrid({ categories, selectedCategories, onRemoveCategory, excludeVideoIds = [], searchQuery = "", onClearSearch, showShorts = true, onlyShorts = false }: VideoGridProps) {
     const [videos, setVideos] = useState<Video[]>([]);
     const [page, setPage] = useState(0);
     const [loading, setLoading] = useState(false);
@@ -38,6 +41,10 @@ export default function VideoGrid({ categories, selectedCategories, onRemoveCate
     const [total, setTotal] = useState(0);
     const observerTarget = useRef<HTMLDivElement>(null);
     const limit = 40;
+    
+    // Generate a random seed once per component mount to shuffle the feed slightly
+    // but keep pagination completely stable.
+    const [sessionSeed] = useState(() => Math.floor(Math.random() * 1000) + 1);
 
     // Resolve selected category names
     const activeFilters = categories.filter(c => selectedCategories.includes(c.category_id));
@@ -57,7 +64,11 @@ export default function VideoGrid({ categories, selectedCategories, onRemoveCate
             const offset = page * limit;
             const apiBase = process.env.NEXT_PUBLIC_API_URL || "";
 
-            let query = `${apiBase}/api/videos?limit=${limit}&offset=${offset}`;
+            let query = `${apiBase}/api/videos?limit=${limit}&offset=${offset}&seed=${sessionSeed}`;
+
+            if (onlyShorts) {
+                query += `&only_shorts=true`;
+            }
 
             if (searchQuery) {
                 query += `&q=${encodeURIComponent(searchQuery)}`;
@@ -118,60 +129,81 @@ export default function VideoGrid({ categories, selectedCategories, onRemoveCate
         return () => observer.disconnect();
     }, [loadVideos, loading, hasMore]);
 
+    // Failsafe: Catch race conditions where `searchQuery` resets the grid to empty, 
+    // but the intersection observer callback misses it because the previous keypress fetch was still `loading`.
+    useEffect(() => {
+        if (!loading && hasMore && videos.length === 0 && page === 0) {
+            loadVideos();
+        }
+    }, [loading, hasMore, videos.length, page, loadVideos]);
 
-    // Strict Maximum Spread Channel Deduplication: Sliding Window with Deferred Queue
+
+    // Sliding Window Interleaver to strictly space out same-channel videos
     const deduplicateVideos = (vids: Video[]): Video[] => {
         if (vids.length === 0) return [];
 
         const result: Video[] = [];
-        const WINDOW_SIZE = 12; // Approximate size of a "screen"
-        const MAX_PER_WINDOW = 2; // Strict limit: max 2 videos from same channel per screen
-
-        // We will process the incoming fetched videos in order, but defer those that 
-        // violate the window constraint until the window shifts enough.
-        const pending = [...vids];
-
-
-        while (pending.length > 0) {
-            let madeProgress = false;
-
-            // Try pending queue first
-            for (let i = 0; i < pending.length; i++) {
-                const v = pending[i];
-                const windowStart = Math.max(0, result.length - WINDOW_SIZE);
-                let countInWindow = 0;
-
+        const remaining = [...vids];
+        
+        // Define how many videos constitute a "screen"
+        const W = onlyShorts ? 21 : 12; 
+        const MAX_COUNT = 2; // Max 2 from the same channel in any window of size W
+        
+        while (remaining.length > 0) {
+            let foundValid = false;
+            
+            for (let i = 0; i < remaining.length; i++) {
+                const candidate = remaining[i];
+                
+                // 1. Check window constraint
+                // We check the last (W - 1) elements to see if candidate violates MAX_COUNT
+                const windowStart = Math.max(0, result.length - (W - 1));
+                let count = 0;
                 for (let j = windowStart; j < result.length; j++) {
-                    if (result[j].channel_name === v.channel_name) {
-                        countInWindow++;
+                    if (result[j].channel_name === candidate.channel_name) {
+                        count++;
                     }
                 }
-
-                if (countInWindow < MAX_PER_WINDOW) {
-                    result.push(v);
-                    pending.splice(i, 1);
-                    madeProgress = true;
-                    break;
+                
+                if (count < MAX_COUNT) {
+                    // 2. Strict Adjacency Constraint: Don't allow immediately consecutive videos from same channel if possible
+                    const isAdjacent = result.length > 0 && result[result.length - 1].channel_name === candidate.channel_name;
+                    
+                    if (!isAdjacent) {
+                        result.push(candidate);
+                        remaining.splice(i, 1);
+                        foundValid = true;
+                        break;
+                    }
                 }
             }
-
-            // If we couldn't place any pending video due to strict constraints,
-            // we have a "deadlock" for the current window.
-            // Move the remaining pending videos to deferred, they will just be appended 
-            // once we cannot satisfy the rule.
-            if (!madeProgress) {
-                break;
+            
+            // If strictly separated videos cannot be found (e.g. the remaining list is dominated by one channel)
+            if (!foundValid) {
+                // Relax constraints: Just try to break adjacency at least, ignoring the window limit.
+                let fallbackIndex = 0;
+                for (let i = 0; i < remaining.length; i++) {
+                    if (result.length === 0 || result[result.length - 1].channel_name !== remaining[i].channel_name) {
+                        fallbackIndex = i;
+                        break;
+                    }
+                }
+                result.push(remaining[fallbackIndex]);
+                remaining.splice(fallbackIndex, 1);
             }
         }
 
-        // Any videos strictly violating the rule that couldn't be placed are just pushed to the end.
-        // This ensures they are technically still in the list (so infinite scroll math works)
-        // but pushed far down.
-        return [...result, ...pending];
+        return result;
     };
 
-    const displayableVideos = videos.filter(v => !excludeVideoIds.includes(v.video_id));
-    const displayVideos = deduplicateVideos(displayableVideos);
+    const displayableVideos = videos.filter(v => {
+        if (excludeVideoIds.includes(v.video_id)) return false;
+        return true;
+    });
+
+    // If searching, we don't want to deduplicate because search results are usually small
+    // and highly specific. Deduplication might hide the exact video the user is looking for.
+    const displayVideos = searchQuery ? displayableVideos : deduplicateVideos(displayableVideos);
 
     return (
         <section className="flex-1 min-w-0 p-4 md:p-6 lg:p-8">
@@ -187,11 +219,14 @@ export default function VideoGrid({ categories, selectedCategories, onRemoveCate
                                 </div>
                             ) : (
                                 <div className="flex items-end gap-3">
-                                    <span>오늘 뭐해 먹지?</span>
                                     {!searchQuery && activeFilters.length === 0 && (
-                                        <span className="text-gray-400 text-sm font-normal hidden sm:inline-block mb-1">
-                                            당신의 입맛에 딱 맞는 다양한 요리를 찾아보세요 ✨
-                                        </span>
+                                        <h2 className="text-2xl font-bold flex items-center gap-2 text-white">
+                                            {onlyShorts ? (
+                                                <><span className="text-red-500">📱</span> 전체 쇼츠</>
+                                            ) : (
+                                                <><span className="text-red-500">🍲</span> 주메뉴 레시피</>
+                                            )}
+                                        </h2>
                                     )}
                                 </div>
                             )}
@@ -241,7 +276,10 @@ export default function VideoGrid({ categories, selectedCategories, onRemoveCate
                 </div>
             )}
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-x-6 gap-y-6 mb-12">
+            <div className={`grid gap-x-4 gap-y-6 mb-12 ${onlyShorts
+                    ? "grid-cols-3 sm:grid-cols-4 md:grid-cols-7 lg:grid-cols-7 xl:grid-cols-7 2xl:grid-cols-7"
+                    : "grid-cols-2 sm:grid-cols-4 lg:grid-cols-6 xl:grid-cols-8"
+                }`}>
                 {displayVideos.map((video, index) => (
                     <VideoCard key={`${video.video_id}-${index}`} video={video} />
                 ))}

@@ -130,6 +130,29 @@ export default function Header({ categories, onMenuClick, onSearch }: HeaderProp
 
                 {/* Global Navigation Bar (Desktop) */}
                 <nav className="hidden md:flex h-full items-center gap-8 relative" onMouseLeave={handleMouseLeave}>
+                    <Link
+                        href="/"
+                        onClick={() => {
+                            setInputValue("");
+                            onSearch("");
+                            window.scrollTo({ top: 0, behavior: 'smooth' });
+                        }}
+                        className="flex items-center gap-1.5 text-sm font-medium text-gray-300 hover:text-white transition-colors"
+                    >
+                        <span className="text-red-500">🍲</span> 주메뉴
+                    </Link>
+
+                    <Link
+                        href="/shorts"
+                        className="flex items-center gap-1.5 text-sm font-medium text-gray-300 hover:text-white transition-colors"
+                    >
+                        <span className="text-red-500">📱</span> 쇼츠 레시피
+                    </Link>
+
+                    <Link href="/trending" className="flex items-center gap-1.5 text-sm font-medium text-gray-300 hover:text-white transition-colors mr-6">
+                        <span className="text-red-500">🔥</span> 인기 레시피
+                    </Link>
+
                     {rootCategories.map((rootCat) => (
                         <div
                             key={rootCat.category_id}
@@ -169,37 +192,28 @@ export default function Header({ categories, onMenuClick, onSearch }: HeaderProp
 
                 {/* Search & Profile */}
                 <div className="flex items-center gap-4">
-                    {/* Desktop Search */}
-                    <div className="relative group hidden sm:flex items-center">
-                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 group-focus-within:text-white pointer-events-none" />
-                        <input
-                            ref={desktopInputRef}
-                            type="text"
-                            value={inputValue}
-                            placeholder="레시피 검색..."
-                            className="bg-[#202020] border border-gray-700 text-white text-sm rounded-full pl-10 pr-8 py-1.5 focus:outline-none focus:border-red-500 focus:bg-[#141414] transition-all w-48 focus:w-72"
-                            onChange={(e) => handleInputChange(e.target.value)}
-                        />
-                        {inputValue ? (
-                            <button
-                                onClick={handleClear}
-                                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white"
-                            >
-                                <X size={14} />
-                            </button>
-                        ) : (
-                            <kbd className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-600 text-xs font-mono group-focus-within:hidden hidden lg:block">/</kbd>
-                        )}
+                    {/* Search bar removed per user request */}
+                    
+                    {/* Stylized Hanja Stamp */}
+                    <div className="hidden md:flex items-center gap-1.5 mr-5 cursor-default select-none group" title="식도락: 맛있는 음식을 먹는 즐거움">
+                        {["食", "道", "樂"].map((char, i) => {
+                            const transforms = [
+                                '-rotate-12 translate-y-[2px] group-hover:-translate-y-[4px] group-hover:rotate-[-3deg]',
+                                'rotate-12 -translate-y-[1px] group-hover:-translate-y-[8px] group-hover:rotate-[4deg]',
+                                '-rotate-6 translate-y-[2px] group-hover:-translate-y-[3px] group-hover:rotate-[-1deg]'
+                            ];
+                            return (
+                                <div 
+                                    key={i} 
+                                    className={`w-6 h-6 sm:w-7 sm:h-7 flex items-center justify-center rounded bg-gradient-to-br from-[#E63946] to-[#9B1D20] text-[#F1FAEE] font-serif text-sm sm:text-base font-black shadow-[1.5px_1.5px_0px_rgba(244,162,97,0.8)] border-[1px] border-[#D90429] transform transition-all duration-300 ease-[cubic-bezier(0.34,1.56,0.64,1)] ${transforms[i]} group-hover:shadow-[2px_4px_0px_rgba(244,162,97,0.6)] relative overflow-hidden`}
+                                >
+                                    {/* Traditional seal texture effect */}
+                                    <div className="absolute inset-0 opacity-20 bg-[url('https://www.transparenttextures.com/patterns/stardust.png')] pointer-events-none mix-blend-overlay"></div>
+                                    <span className="relative z-10 drop-shadow-sm">{char}</span>
+                                </div>
+                            );
+                        })}
                     </div>
-
-                    {/* Mobile Search Icon */}
-                    <button
-                        onClick={openMobileSearch}
-                        className="sm:hidden text-gray-300 hover:text-white p-1"
-                        aria-label="검색 열기"
-                    >
-                        <Search size={20} />
-                    </button>
 
                     <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-red-600 to-orange-500 flex items-center justify-center text-sm font-bold cursor-pointer hover:ring-2 ring-offset-2 ring-offset-[#141414] ring-red-500 transition-all">
                         G

@@ -113,9 +113,9 @@ export default function VideoModal({ videoId, title, channelName, recipeMemo, on
             const isHeader = trimmed.includes("📍");
             const isIngredients = isHeader && trimmed.includes("핵심 재료");
 
-            let className = "text-gray-300 ml-1 mb-2 leading-relaxed text-[15px]";
+            let className = "text-gray-300 ml-1 mb-1.5 leading-snug text-[14px]";
             if (isHeader) {
-                className = "font-semibold text-red-400 mt-6 mb-3 text-base flex items-center";
+                className = "font-semibold text-red-400 mt-5 mb-2 text-[15px] flex items-center";
             }
 
             let displayText = trimmed;
@@ -133,9 +133,9 @@ export default function VideoModal({ videoId, title, channelName, recipeMemo, on
                     const label = displayText.substring(0, splitIndex + 1);
                     const ingredients = displayText.substring(splitIndex + 1);
                     return (
-                        <div key={i} className="mt-6 mb-3 flex items-start text-base">
+                        <div key={i} className="mt-5 mb-2 flex items-start text-[14px]">
                             <span className="font-semibold text-red-400 whitespace-nowrap flex-shrink-0">{label}</span>
-                            <span className="text-gray-200 ml-2 font-medium leading-relaxed">{ingredients}</span>
+                            <span className="text-gray-200 ml-2 font-medium leading-snug">{ingredients}</span>
                         </div>
                     );
                 }

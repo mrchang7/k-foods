@@ -20,9 +20,11 @@ interface Video {
     url: string;
     recipe_memo?: string;
     categories: Category[];
+    is_short?: boolean;
+    is_vertical?: boolean;
 }
 
-export default function VideoCard({ video }: { video: Video }) {
+export default function VideoCard({ video, rank, layout = 'default', theme = 'default' }: { video: Video, rank?: number, layout?: 'default' | 'compact', theme?: 'default' | 'red' | 'orange' | 'yellow' }) {
     const [imgSrc, setImgSrc] = useState(video.thumbnail_url || "https://via.placeholder.com/320x180");
     const [errorCount, setErrorCount] = useState(0);
     const [showModal, setShowModal] = useState(false);
@@ -48,6 +50,21 @@ export default function VideoCard({ video }: { video: Video }) {
         }
     };
 
+    const getRankBadgeColors = (t: string) => {
+        if (t === 'red') {
+            return "bg-gradient-to-br from-rose-400 via-pink-500 to-red-500 text-white border-white/40 shadow-[0_2px_10px_rgba(244,63,94,0.4)]";
+        }
+        if (t === 'orange') {
+            return "bg-gradient-to-br from-amber-300 via-orange-400 to-orange-500 text-white border-white/40 shadow-[0_2px_10px_rgba(246,143,36,0.4)]";
+        }
+        if (t === 'yellow') {
+            return "bg-gradient-to-br from-yellow-100 via-yellow-300 to-amber-400 text-yellow-900 border-white/60 shadow-[0_2px_10px_rgba(252,211,77,0.4)]";
+        }
+        
+        // Default fallback
+        return "bg-gradient-to-br from-slate-600 to-slate-800 text-white border-white/20 shadow-md";
+    };
+
     return (
         <>
             {showModal && (
@@ -62,61 +79,54 @@ export default function VideoCard({ video }: { video: Video }) {
 
             <div
                 onClick={() => setShowModal(true)}
-                className="group flex flex-col gap-2 rounded-lg overflow-hidden transition-all duration-300 hover:scale-105 hover:bg-[#202020] p-2 -m-2 cursor-pointer"
+                className={`group flex rounded-lg overflow-hidden transition-all duration-300 hover:scale-[1.03] hover:bg-[#202020] p-1.5 -m-1.5 cursor-pointer ${
+                    layout === 'compact' ? 'flex-row items-center gap-3' : `flex-col gap-1.5 ${video.is_short ? "col-span-1" : "col-span-2 md:col-span-2 lg:col-span-2 xl:col-span-2"}`
+                }`}
             >
-                <div className="relative aspect-video w-full rounded-lg overflow-hidden bg-gray-900">
-                    {/* Blurred Background for vertical/Shorts thumbnails */}
-                    <Image
-                        src={imgSrc}
-                        alt="background"
-                        fill
-                        className="object-cover blur-xl opacity-50 scale-110"
-                        sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
-                        unoptimized={true}
-                    />
-                    {/* Overlay to make the background lighter as requested */}
-                    <div className="absolute inset-0 bg-white/5 z-0" />
-
-                    {/* Main Thumbnail */}
-                    <Image
-                        src={imgSrc}
-                        alt={video.title}
-                        fill
-                        className="object-contain group-hover:brightness-110 transition-all z-10"
-                        sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
-                        unoptimized={true}
-                        onError={handleImageError}
-                    />
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex items-end p-3 z-20">
-                        <span className="bg-red-600 text-white text-xs font-bold px-2 py-1 rounded">▶ 재생</span>
+                <div className={`relative rounded-lg overflow-hidden flex justify-center items-center bg-black flex-shrink-0 ${
+                    layout === 'compact' 
+                        ? (video.is_short ? "w-[120px] sm:w-[140px] aspect-[9/16]" : "w-52 sm:w-64 aspect-video")
+                        : `w-full ${video.is_short ? "aspect-[9/16]" : "aspect-video"}`
+                }`}>
+                    
+                    {/* Main Thumbnail Container */}
+                    <div className={`${video.is_vertical && !video.is_short ? "relative h-full aspect-[9/16] overflow-hidden" : "absolute inset-0"}`}>
+                        {rank && (
+                            <div className={`absolute top-0 left-0 font-black px-3 py-1.5 rounded-br-xl z-20 text-lg shadow-sm border-r border-b flex items-center justify-center min-w-[40px]
+                                ${getRankBadgeColors(theme)}
+                            `}>
+                                {rank}
+                            </div>
+                        )}
+                        <Image
+                            src={imgSrc}
+                            alt={video.title}
+                            fill
+                            className={`object-cover z-10 transition-all duration-300 ${
+                                video.is_short || video.is_vertical
+                                    ? "scale-[1.35] group-hover:scale-[1.4] brightness-90 group-hover:brightness-100" 
+                                    : "group-hover:scale-[1.05] group-hover:brightness-110"
+                            }`}
+                            sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+                            unoptimized={true}
+                            onError={handleImageError}
+                        />
+                    </div>
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex items-end p-2 z-20">
+                        <span className="bg-red-600 text-white text-[10px] sm:text-xs font-bold px-1.5 py-0.5 rounded">▶ 재생</span>
                     </div>
                 </div>
-                <div className="flex flex-col px-1">
-                    <h3 className="text-white font-semibold text-base line-clamp-2 leading-tight group-hover:text-red-400 transition-colors">
+                <div className={`flex flex-col px-1 ${layout === 'compact' ? 'flex-1 py-1 justify-center' : ''}`}>
+                    <h3 className={`text-white font-medium line-clamp-2 leading-snug group-hover:text-red-400 transition-colors ${layout === 'compact' ? 'text-sm sm:text-base' : 'text-sm'}`}>
                         {video.title}
                     </h3>
-                    <div className="flex items-center gap-2 text-gray-400 text-xs mt-1">
-                        <span>{video.channel_name}</span>
-                        <span className="w-1 h-1 rounded-full bg-gray-600" />
-                        <span>{formatViews(video.view_count)}</span>
+                    <div className="flex items-center gap-1.5 text-gray-400 text-[11px] sm:text-xs mt-1">
+                        <span className="truncate max-w-[120px]">{video.channel_name}</span>
+                        <span className="w-1 h-1 rounded-full bg-gray-600 flex-shrink-0" />
+                        <span className="flex-shrink-0">{formatViews(video.view_count)}</span>
                     </div>
 
-                    {/* Category & Recipe Badges */}
-                    <div className="flex flex-wrap gap-1 mt-2">
-                        {video.recipe_memo && (
-                            <span className="px-2 py-0.5 text-[10px] font-bold rounded-full bg-red-900/40 text-red-400 border border-red-800/50">
-                                📋 레시피
-                            </span>
-                        )}
-                        {video.categories.map((cat) => (
-                            <span
-                                key={cat.category_id}
-                                className="px-2 py-0.5 text-[10px] font-medium rounded-full bg-gray-800 text-gray-300 border border-gray-700"
-                            >
-                                {cat.name}
-                            </span>
-                        ))}
-                    </div>
+
                 </div>
             </div>
         </>

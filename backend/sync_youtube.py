@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session
 from database import SessionLocal
 from models import Video, Category, video_category_map
 from datetime import datetime
+import re
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -27,6 +28,18 @@ try:
 except Exception as e:
     print(f"Error loading channels.json: {e}")
     sys.exit(1)
+
+
+def parse_duration(duration_str):
+    # e.g. PT1H2M10S, PT1M30S, PT45S
+    match = re.match(r'PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?', duration_str)
+    if not match:
+        return 0
+    h, m, s = match.groups()
+    hours = int(h) if h else 0
+    minutes = int(m) if m else 0
+    seconds = int(s) if s else 0
+    return hours * 3600 + minutes * 60 + seconds
 
 # ─── Keyword → Category Name Mapping ──────────────────────────────────────────
 # Keywords in video titles map to category names in the DB
@@ -151,7 +164,7 @@ def fetch_video_details(youtube, video_ids: list[str]) -> list[dict]:
     for i in range(0, len(video_ids), 50):
         batch = video_ids[i : i + 50]
         resp = youtube.videos().list(
-            part="snippet,statistics",
+            part="snippet,statistics,contentDetails,status",
             id=",".join(batch),
         ).execute()
         results.extend(resp.get("items", []))
@@ -185,8 +198,15 @@ def sync_videos():
                 
                 for item in details:
                     vid_id    = item["id"]
+                    status    = item.get("status", {})
+                    
+                    if not status.get("embeddable", True):
+                        print(f"  ⏭️ Skipping non-embeddable video: {vid_id}")
+                        continue
+                    
                     snippet   = item["snippet"]
                     stats     = item.get("statistics", {})
+                    content_details = item.get("contentDetails", {})
                     title     = snippet["title"]
                     channel_title = snippet["channelTitle"]
                     thumb_url = snippet.get("thumbnails", {}).get("high", {}).get("url", "")
@@ -198,12 +218,16 @@ def sync_videos():
                     except Exception:
                         published_at = datetime.utcnow()
                     
+                    dur_str = content_details.get("duration", "")
+                    dur_sec = parse_duration(dur_str) if dur_str else None
+                    
                     # Upsert the video
                     existing = db.query(Video).filter_by(video_id=vid_id).first()
                     if existing:
                         existing.title = title
                         existing.view_count = view_count
                         existing.thumbnail_url = thumb_url
+                        existing.duration = dur_sec
                         video_obj = existing
                         total_updated += 1
                     else:
@@ -215,6 +239,7 @@ def sync_videos():
                             view_count=view_count,
                             published_at=published_at,
                             url=f"https://youtube.com/watch?v={vid_id}",
+                            duration=dur_sec,
                         )
                         db.add(video_obj)
                         total_inserted += 1

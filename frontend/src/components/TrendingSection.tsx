@@ -23,10 +23,16 @@ interface Video {
 
 interface TrendingSectionProps {
     onVideosLoaded?: (videoIds: string[]) => void;
+    fixedPeriod?: "daily" | "weekly" | "monthly";
+    title?: React.ReactNode;
+    subtitle?: string;
+    verticalLayout?: boolean;
+    compactLayout?: boolean;
+    theme?: 'default' | 'red' | 'orange' | 'yellow';
 }
 
-export default function TrendingSection({ onVideosLoaded }: TrendingSectionProps) {
-    const [period, setPeriod] = useState<"daily" | "weekly" | "monthly">("weekly");
+export default function TrendingSection({ onVideosLoaded, fixedPeriod, title, subtitle, verticalLayout = false, compactLayout = false, theme = 'default' }: TrendingSectionProps) {
+    const [period, setPeriod] = useState<"daily" | "weekly" | "monthly">(fixedPeriod || "weekly");
     const [videos, setVideos] = useState<Video[]>([]);
     const [loading, setLoading] = useState(true);
     const [atStart, setAtStart] = useState(true);
@@ -70,36 +76,42 @@ export default function TrendingSection({ onVideosLoaded }: TrendingSectionProps
     };
 
     return (
-        <section className="w-full max-w-[1600px] mx-auto px-4 md:px-8 pt-2 pb-10">
+        <section className="w-full max-w-[1600px] mx-auto px-4 md:px-8 pt-1 pb-4">
             {/* Header */}
-            <div className="flex flex-col md:flex-row md:items-end justify-between mb-6 gap-4 border-b border-gray-800 pb-4">
+            <div className="flex flex-col md:flex-row md:items-end justify-between mb-3 gap-2 border-b border-gray-800 pb-2">
                 <div className="flex items-center gap-3">
-                    <h2 className="text-2xl font-bold flex items-center gap-2">
-                        <span className="text-red-500">🔥</span> 최근 인기 레시피
+                    <h2 className="text-xl font-bold flex items-center gap-2">
+                        {title || (
+                            <>
+                                <span className="text-red-500">🔥</span> 최근 인기 레시피
+                            </>
+                        )}
                     </h2>
                     <span className="text-gray-400 text-sm hidden sm:inline-block">
-                        요즘 가장 핫한 레시피를 만나보세요
+                        {subtitle || "요즘 가장 핫한 레시피를 만나보세요"}
                     </span>
                 </div>
 
                 {/* Period Tabs */}
-                <div className="flex bg-[#1a1a1a] rounded-lg p-1">
-                    {(["daily", "weekly", "monthly"] as const).map(p => (
-                        <button
-                            key={p}
-                            onClick={() => setPeriod(p)}
-                            className={`px-4 py-1.5 text-sm font-medium rounded-md transition-colors ${period === p ? "bg-red-600 text-white shadow-sm" : "text-gray-400 hover:text-white"
-                                }`}
-                        >
-                            {p === "daily" ? "일간" : p === "weekly" ? "주간" : "월간"}
-                        </button>
-                    ))}
-                </div>
+                {!fixedPeriod && (
+                    <div className="flex bg-[#1a1a1a] rounded-lg p-1">
+                        {(["daily", "weekly", "monthly"] as const).map(p => (
+                            <button
+                                key={p}
+                                onClick={() => setPeriod(p)}
+                                className={`px-4 py-1.5 text-sm font-medium rounded-md transition-colors ${period === p ? "bg-red-600 text-white shadow-sm" : "text-gray-400 hover:text-white"
+                                    }`}
+                            >
+                                {p === "daily" ? "일간" : p === "weekly" ? "주간" : "월간"}
+                            </button>
+                        ))}
+                    </div>
+                )}
             </div>
 
-            {/* Horizontal Scroll Container */}
-            <div className="relative px-14">
-                {!atStart && (
+            {/* Container (Horizontal Scroll OR Vertical Grid OR Compact Stack) */}
+            <div className={`relative ${verticalLayout || compactLayout ? '' : 'px-10'}`}>
+                {!verticalLayout && !compactLayout && !atStart && (
                     <button
                         onClick={() => scroll("left")}
                         className="absolute left-0 top-[45%] -translate-y-1/2 z-10 bg-black/70 hover:bg-red-600 text-white rounded-full w-14 h-14 flex items-center justify-center shadow-lg transition-colors text-4xl font-light"
@@ -110,32 +122,50 @@ export default function TrendingSection({ onVideosLoaded }: TrendingSectionProps
                 )}
 
                 {loading ? (
-                    <div className="w-full flex justify-center items-center py-16">
+                    <div className="w-full flex justify-center items-center py-8">
                         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-red-500" />
                     </div>
                 ) : videos.length > 0 ? (
-                    <div
-                        ref={scrollRef}
-                        onScroll={handleScroll}
-                        className="flex gap-4 overflow-x-auto scroll-smooth pb-3"
-                        style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}
-                    >
-                        {videos.map((video, index) => (
-                            <div
-                                key={`trending-${video.video_id}-${index}`}
-                                className="flex-none w-[220px]"
-                            >
-                                <VideoCard video={video} />
-                            </div>
-                        ))}
-                    </div>
+                    compactLayout ? (
+                        <div className="flex flex-col gap-3">
+                            {videos.map((video, index) => (
+                                <div key={`trending-${video.video_id}-${index}`} className="w-full">
+                                    <VideoCard video={video} rank={index + 1} layout="compact" theme={theme} />
+                                </div>
+                            ))}
+                        </div>
+                    ) : verticalLayout ? (
+                        <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-5 gap-4">
+                            {videos.map((video, index) => (
+                                <div key={`trending-${video.video_id}-${index}`}>
+                                    <VideoCard video={video} rank={index + 1} theme={theme} />
+                                </div>
+                            ))}
+                        </div>
+                    ) : (
+                        <div
+                            ref={scrollRef}
+                            onScroll={handleScroll}
+                            className="flex gap-3 overflow-x-auto scroll-smooth pb-2"
+                            style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}
+                        >
+                            {videos.map((video, index) => (
+                                <div
+                                    key={`trending-${video.video_id}-${index}`}
+                                    className="flex-none w-[180px]"
+                                >
+                                    <VideoCard video={video} rank={index + 1} theme={theme} />
+                                </div>
+                            ))}
+                        </div>
+                    )
                 ) : (
                     <div className="w-full flex justify-center items-center py-16 text-gray-500">
                         해당 기간의 인기 영상이 없습니다.
                     </div>
                 )}
 
-                {!atEnd && (
+                {!verticalLayout && !compactLayout && !atEnd && (
                     <button
                         onClick={() => scroll("right")}
                         className="absolute right-0 top-[45%] -translate-y-1/2 z-10 bg-black/70 hover:bg-red-600 text-white rounded-full w-14 h-14 flex items-center justify-center shadow-lg transition-colors text-4xl font-light"

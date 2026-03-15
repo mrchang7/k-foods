@@ -5,7 +5,7 @@ import Sidebar, { Category } from "@/components/Sidebar";
 import VideoGrid from "@/components/VideoGrid";
 import Header from "@/components/Header";
 import HeroSection from "@/components/HeroSection";
-import TrendingSection from "@/components/TrendingSection";
+import ShortsCarousel from "@/components/ShortsCarousel";
 import { Filter } from "lucide-react";
 
 export default function Home() {
@@ -22,9 +22,7 @@ export default function Home() {
     setSelectedCategories([]);
   }, []);
 
-  // State to hold currently trending videos so we don't repeat them right below
-  const [trendingVideoIds, setTrendingVideoIds] = useState<string[]>([]);
-
+  // Wait until we have a proper use case for TrendingSection or remove if unused
   // Fetch categories on mount
   useEffect(() => {
     const fetchCategories = async () => {
@@ -45,11 +43,26 @@ export default function Home() {
   const handleCategoryChange = (categoryId: number) => {
     // When selecting a category, clear search query
     if (searchQuery) setSearchQuery("");
-    setSelectedCategories((prev) =>
-      prev.includes(categoryId)
-        ? prev.filter((id) => id !== categoryId) // Remove
-        : [...prev, categoryId]                  // Add
-    );
+
+    const targetCategory = categories.find((c) => c.category_id === categoryId);
+    if (!targetCategory) return;
+
+    setSelectedCategories((prev) => {
+      // If already selected, just deselect it (toggle off)
+      if (prev.includes(categoryId)) {
+        return prev.filter((id) => id !== categoryId);
+      }
+      
+      // Otherwise, remove any currently selected categories that share the same parent_id (same group)
+      const sameGroupCategoryIds = categories
+        .filter((c) => c.parent_id === targetCategory.parent_id)
+        .map((c) => c.category_id);
+        
+      const newSelection = prev.filter((id) => !sameGroupCategoryIds.includes(id));
+      
+      // Add the newly selected category
+      return [...newSelection, categoryId];
+    });
   };
 
   const handleRemoveCategory = (categoryId: number) => {
@@ -66,13 +79,8 @@ export default function Home() {
         onSearch={handleSearch}
       />
 
-      {/* Show Hero and Trending only when no filters and no search (Browsing mode) */}
-      {isBrowsingMode && (
-        <>
-          <HeroSection onSearch={handleSearch} />
-          <TrendingSection onVideosLoaded={setTrendingVideoIds} />
-        </>
-      )}
+      {/* Always show Search Hero */}
+      <HeroSection onSearch={handleSearch} />
 
       <div className="flex flex-1 max-w-[1600px] w-full mx-auto relative">
         {/* Desktop Sidebar */}
@@ -99,14 +107,15 @@ export default function Home() {
           </div>
         )}
 
-        <main className="flex-1 border-l border-gray-800">
+        <main id="main-dishes-section" className="flex-1 flex flex-col border-l border-gray-800">
           <VideoGrid
             categories={categories}
             selectedCategories={selectedCategories}
             onRemoveCategory={handleRemoveCategory}
-            excludeVideoIds={isBrowsingMode ? trendingVideoIds : []}
+            excludeVideoIds={[]}
             searchQuery={searchQuery}
             onClearSearch={() => handleSearch("")}
+            showShorts={false}
           />
         </main>
       </div>

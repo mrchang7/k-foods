@@ -22,10 +22,49 @@ class Video(Base):
     published_at = Column(DateTime, nullable=True)
     url = Column(String, nullable=False)
     recipe_memo = Column(String, nullable=True)
+    duration = Column(Integer, nullable=True)
 
     # Relationships
     categories = relationship('Category', secondary=video_category_map, back_populates='videos')
 
+    @property
+    def is_short(self) -> bool:
+        # If we have accurate duration from API, use that as the primary source of truth (80 secs = 1분 20초)
+        if self.duration is not None:
+            if self.duration <= 80:
+                return True
+            # If duration is known to be > 80, it's NOT a short, regardless of titles
+            return False
+            
+        # Fallback to heuristics if duration is not yet populated
+        title_lower = (self.title or "").lower()
+        channel_lower = (self.channel_name or "").lower()
+        url_lower = (self.url or "").lower()
+        
+        if "/shorts/" in url_lower:
+            return True
+            
+        short_keywords = ['shorts', 'shrots', 'short', '쇼츠', '1분', '1 minute', '틱톡', 'tiktok']
+        for k in short_keywords:
+            if k in title_lower:
+                return True
+                
+        short_channels = ['1분', '자취요리신', '레시피 읽어주는 여자', '뚝딱이형', '퉁키']
+        for c in short_channels:
+            if c in channel_lower:
+                return True
+                
+                
+        return False
+
+    @property
+    def is_vertical(self) -> bool:
+        url_lower = (self.url or "").lower()
+        if "vertical=1" in url_lower or "/shorts/" in url_lower:
+            return True
+        if self.duration is not None and self.duration <= 80:
+            return True
+        return self.is_short
 
 class Category(Base):
     __tablename__ = 'categories'
